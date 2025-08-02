@@ -1,66 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Todo App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h1>Todo App</h1>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="bg-white shadow-md rounded p-6 w-full max-w-md">
+    <h1 class="text-2xl font-bold mb-4 text-center text-emerald-600">Todo List</h1>
+    
+    <form id="todoForm" class="flex mb-4">
+      <input id="todoInput" type="text" class="flex-grow px-4 py-2 border rounded-l focus:outline-none" placeholder="Add new todo" />
+      <button type="submit" class="bg-emerald-500 text-white px-4 py-2 rounded-r hover:bg-emerald-600">Add</button>
+    </form>
 
-  <form id="todoForm">
-    <input type="text" id="todoText" placeholder="Enter todo..." required>
-    <button type="submit">Add Todo</button>
-  </form>
-
-  <h2>Todo List</h2>
-  <ul id="todoList"></ul>
+    <ul id="todoList" class="space-y-2"></ul>
+  </div>
 
   <script>
-    const API_URL = 'https://todoapp-production-9f43.up.railway.app';
+    const API_URL = 'https://todoapp-production-9f43.up.railway.app/todos';
 
-    // Fetch and display existing todos
+    const todoForm = document.getElementById("todoForm");
+    const todoInput = document.getElementById("todoInput");
+    const todoList = document.getElementById("todoList");
+
+    // Load todos
     async function loadTodos() {
-      try {
-        const res = await fetch(`${API_URL}/todos`);
-        const todos = await res.json();
-
-        const list = document.getElementById("todoList");
-        list.innerHTML = ""; // Clear current list
-
-        todos.forEach(todo => {
-          const li = document.createElement("li");
-          li.textContent = todo.text + (todo.done ? " ✅" : "");
-          list.appendChild(li);
-        });
-      } catch (err) {
-        console.error("Error loading todos:", err);
-      }
+      const res = await fetch(API_URL);
+      const todos = await res.json();
+      todoList.innerHTML = "";
+      todos.forEach(todo => renderTodo(todo));
     }
 
-    // Handle new todo form
-    document.getElementById("todoForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const input = document.getElementById("todoText");
-      const newTodo = input.value.trim();
+    // Render single todo item
+    function renderTodo(todo) {
+      const li = document.createElement("li");
+      li.className = "flex items-center justify-between bg-gray-50 border rounded px-3 py-2";
 
-      if (newTodo) {
-        try {
-          await fetch(`${API_URL}/todos`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ text: newTodo })
-          });
-          input.value = "";
-          loadTodos(); // Refresh the list
-        } catch (err) {
-          console.error("Error adding todo:", err);
-        }
+      const textSpan = document.createElement("span");
+      textSpan.className = "flex-grow ml-2";
+      textSpan.textContent = todo.text;
+      if (todo.done) {
+        textSpan.classList.add("line-through", "text-gray-400");
       }
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = todo.done;
+      checkbox.className = "mr-2";
+      checkbox.addEventListener("change", () => toggleDone(todo, checkbox.checked));
+
+      const editBtn = document.createElement("button");
+      editBtn.textContent = "✏️";
+      editBtn.className = "text-sm px-2 hover:text-blue-600";
+      editBtn.onclick = () => editTodo(todo);
+
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "❌";
+      delBtn.className = "text-sm px-2 hover:text-red-600";
+      delBtn.onclick = () => deleteTodo(todo.id);
+
+      li.appendChild(checkbox);
+      li.appendChild(textSpan);
+      li.appendChild(editBtn);
+      li.appendChild(delBtn);
+      todoList.appendChild(li);
+    }
+
+    // Add todo
+    todoForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      const text = todoInput.value.trim();
+      if (!text) return;
+
+      await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+
+      todoInput.value = "";
+      loadTodos();
     });
 
-    // Load todos when page loads
+    // Toggle done
+    async function toggleDone(todo, done) {
+      await fetch(`${API_URL}/${todo.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ done })
+      });
+      loadTodos();
+    }
+
+    // Delete
+    async function deleteTodo(id) {
+      await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      loadTodos();
+    }
+
+    // Edit
+    async function editTodo(todo) {
+      const newText = prompt("Edit todo:", todo.text);
+      if (!newText || newText.trim() === todo.text) return;
+
+      await fetch(`${API_URL}/${todo.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: newText.trim() })
+      });
+      loadTodos();
+    }
+
+    // Init
     loadTodos();
   </script>
 </body>
